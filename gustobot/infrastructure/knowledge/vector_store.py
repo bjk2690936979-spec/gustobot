@@ -221,6 +221,54 @@ class VectorStore:
             logger.error(f"Search failed: {e}")
             return []
 
+    def query_by_name(self, name_query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Query recipes by exact or fuzzy name match without using embeddings."""
+        query = (name_query or "").strip()
+        if not query:
+            return []
+
+        def _escape(value: str) -> str:
+            return value.replace("\\", "\\\\").replace('"', '\\"')
+
+        escaped = _escape(query)
+        expressions = [
+            f'name == "{escaped}"',
+            f'name like "%{escaped}%"',
+        ]
+
+        for expr in expressions:
+            try:
+                rows = self.collection.query(
+                    expr=expr,
+                    output_fields=["id", "content", "recipe_id", "name", "category", "difficulty"],
+                    limit=limit,
+                )
+                if not rows:
+                    continue
+
+                results = []
+                for row in rows:
+                    results.append(
+                        {
+                            "id": row.get("id"),
+                            "content": row.get("content"),
+                            "score": 1.0,
+                            "metadata": {
+                                "recipe_id": row.get("recipe_id"),
+                                "name": row.get("name"),
+                                "category": row.get("category"),
+                                "difficulty": row.get("difficulty"),
+                                "match_type": "name",
+                            },
+                        }
+                    )
+                logger.info(f"Found {len(results)} name matches")
+                return results
+            except Exception as e:
+                logger.warning(f"Name query failed with expr `{expr}`: {e}")
+
+        return []
+
     def delete_documents(self, ids: List[str]) -> bool:
         """
         删除文档

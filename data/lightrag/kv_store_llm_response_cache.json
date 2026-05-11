@@ -1250,5 +1250,25 @@
     "create_time": 1762170675,
     "update_time": 1762170675,
     "_id": "hybrid:query:bd1b72bf3d4d533f810c716c605932a6"
+  },
+  "hybrid:keywords:9b58decd7cfedebc65ea6e9f45d9609f": {
+    "return": "{\"high_level_keywords\": [\"Classic Shandong cuisine\", \"Representative dishes\", \"Flavor profile\", \"Cooking techniques\", \"Regional characteristics\"], \"low_level_keywords\": [\"Lu cuisine\", \"Shandong province\", \"Braised abalone\", \"Dezhou braised chicken\", \"Nine-turns intestine\", \"Sweet and sour carp\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "列出经典鲁菜的代表性菜品及其风味/工艺/地域特色",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778514856,
+    "update_time": 1778514856,
+    "_id": "hybrid:keywords:9b58decd7cfedebc65ea6e9f45d9609f"
   }
 }

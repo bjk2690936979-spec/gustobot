@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -136,6 +137,15 @@ class KnowledgeService:
             similarity_threshold if similarity_threshold is not None else settings.KB_SIMILARITY_THRESHOLD
         )
 
+        for name_candidate in self._extract_name_candidates(query):
+            name_matches = await asyncio.to_thread(
+                self.vector_store.query_by_name,
+                name_candidate,
+                top_k,
+            )
+            if name_matches:
+                return name_matches[:top_k]
+
         # 如果启用 reranker，先召回更多候选文档
         recall_k = top_k
         if self.reranker.enabled:
@@ -228,6 +238,59 @@ class KnowledgeService:
         )
 
         return {"add_count": len(ids) if success else 0, "ids": ids, "stored": success}
+
+    @staticmethod
+    def _extract_name_candidates(query: str) -> List[str]:
+        text = (query or "").strip()
+        if not text:
+            return []
+
+        cleaned = re.sub(r"[？?。！!，,、：:；;\s]+", "", text)
+        if not cleaned:
+            return []
+
+        stop_phrases = [
+            "请问",
+            "请推荐",
+            "推荐",
+            "介绍一下",
+            "帮我介绍",
+            "帮我查",
+            "查询",
+            "是什么",
+            "怎么做",
+            "如何做",
+            "为什么叫",
+            "为什么",
+            "有什么特色",
+            "特色",
+            "做法",
+            "菜谱",
+            "吗",
+            "呢",
+        ]
+
+        candidates = [cleaned]
+        stripped = cleaned
+        changed = True
+        while changed:
+            changed = False
+            for phrase in stop_phrases:
+                if stripped.startswith(phrase):
+                    stripped = stripped[len(phrase):]
+                    changed = True
+                if stripped.endswith(phrase):
+                    stripped = stripped[:-len(phrase)]
+                    changed = True
+
+        if stripped and stripped != cleaned:
+            candidates.insert(0, stripped)
+
+        unique: List[str] = []
+        for candidate in candidates:
+            if 2 <= len(candidate) <= 40 and candidate not in unique:
+                unique.append(candidate)
+        return unique
 
     @staticmethod
     def _format_recipe_document(recipe: Dict[str, Any]) -> str:

@@ -957,18 +957,36 @@ checkpointer = MemorySaver()
 # 定义状态图
 builder = StateGraph(AgentState, input=InputState)
 # 添加节点
-builder.add_node(analyze_and_route_query) # 意图识别
-builder.add_node(respond_to_general_query)#默认回复
-builder.add_node(get_additional_info) # 图结构信息
-builder.add_node("create_research_plan", create_research_plan)  # 这里是graphrag neo4j-query
-builder.add_node(create_image_query)
-builder.add_node(create_file_query)
-builder.add_node(create_kb_query)
+builder.add_node("analyze_and_route_query", analyze_and_route_query)  # 意图识别
+builder.add_node("respond_to_general_query", respond_to_general_query)  # 默认回复
+builder.add_node("get_additional_info", get_additional_info)  # 图结构信息
+builder.add_node("create_research_plan", create_research_plan)  # graphrag neo4j-query
+builder.add_node("create_image_query", create_image_query)
+builder.add_node("create_file_query", create_file_query)
+builder.add_node("create_kb_query", create_kb_query)
 
 
 # 添加边
 builder.add_edge(START, "analyze_and_route_query")
-builder.add_conditional_edges("analyze_and_route_query", route_query)
+builder.add_conditional_edges(
+    "analyze_and_route_query",
+    route_query,
+    {
+        "respond_to_general_query": "respond_to_general_query",
+        "get_additional_info": "get_additional_info",
+        "create_research_plan": "create_research_plan",
+        "create_image_query": "create_image_query",
+        "create_file_query": "create_file_query",
+        "create_kb_query": "create_kb_query",
+    },
+)
+
+builder.add_edge("respond_to_general_query", END)
+builder.add_edge("get_additional_info", END)
+builder.add_edge("create_research_plan", END)
+builder.add_edge("create_image_query", END)
+builder.add_edge("create_file_query", END)
+builder.add_edge("create_kb_query", END)
 
 graph = builder.compile(checkpointer=checkpointer)
 

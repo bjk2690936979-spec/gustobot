@@ -24,7 +24,7 @@ services:
       - 8.8.4.4
     environment:
       # 基础配置
-      - DEBUG=${DEBUG:-True}
+      - DEBUG=True
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
