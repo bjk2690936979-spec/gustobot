@@ -14,6 +14,7 @@ from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.cyph
     CypherQueryOutputState,
 )
 from gustobot.application.agents.text2sql import create_text2sql_workflow
+from gustobot.application.safety.langgraph_bridge import evidence_from_payload
 from gustobot.config import settings
 from gustobot.infrastructure.core.logger import get_logger
 
@@ -47,6 +48,11 @@ def create_text2sql_tool_node(
         max_rows = int(tool_args.get("max_rows") or 1000)
         connection_string = tool_args.get("connection_string")
         max_retries = int(tool_args.get("max_retries") or 3)
+        safe_parameters = {
+            "connection_id": connection_id,
+            "db_type": db_type,
+            "max_rows": max_rows,
+        }
 
         errors: List[str] = []
 
@@ -73,8 +79,12 @@ def create_text2sql_tool_node(
                         **{
                             "task": question,
                             "query": "",
+                            "statement": "",
+                            "parameters": safe_parameters,
                             "errors": errors or ["图数据库连接不可用"],
                             "records": records_payload,
+                            "evidence": [],
+                            "validation_warnings": errors or ["database connection unavailable"],
                             "steps": ["execute_text2sql_query"],
                         }
                     )
@@ -95,8 +105,12 @@ def create_text2sql_tool_node(
                         **{
                             "task": question,
                             "query": "",
+                            "statement": "",
+                            "parameters": safe_parameters,
                             "errors": errors + ["OPENAI_API_KEY 未配置"],
                             "records": records_payload,
+                            "evidence": [],
+                            "validation_warnings": errors + ["OPENAI_API_KEY not configured"],
                             "steps": ["execute_text2sql_query"],
                         }
                     )
@@ -147,8 +161,12 @@ def create_text2sql_tool_node(
                         **{
                             "task": question,
                             "query": "",
+                            "statement": "",
+                            "parameters": safe_parameters,
                             "errors": errors,
                             "records": records_payload,
+                            "evidence": [],
+                            "validation_warnings": errors,
                             "steps": ["execute_text2sql_query"],
                         }
                     )
@@ -174,6 +192,22 @@ def create_text2sql_tool_node(
         }
         if viz_config:
             records_payload["visualization_config"] = viz_config
+        evidence = (
+            evidence_from_payload(
+                {
+                    "sql_rows": execution_results,
+                    "tool_outputs": {
+                        "task": question,
+                        "sql": sql_statement,
+                        "answer": answer,
+                        "rows": execution_results,
+                    },
+                },
+                route="text2sql-query",
+            )
+            if execution_results
+            else []
+        )
 
         return {
             "cyphers": [
@@ -181,8 +215,12 @@ def create_text2sql_tool_node(
                     **{
                         "task": question,
                         "query": sql_statement,
+                        "statement": sql_statement,
+                        "parameters": safe_parameters,
                         "errors": errors,
                         "records": records_payload,
+                        "evidence": evidence,
+                        "validation_warnings": errors,
                         "steps": ["execute_text2sql_query"],
                     }
                 )

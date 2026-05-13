@@ -102,3 +102,5 @@ class AgentState(InputState):
     hallucination: GradeHallucinations = field(default_factory=lambda: GradeHallucinations(binary_score="0"))
     sources: list = field(default_factory=list)
     """Sources from knowledge base queries."""
+    safety: Dict[str, Any] = field(default_factory=dict)
+    """Safety state shared by lightweight verifier/evidence collection."""

@@ -22,6 +22,8 @@ from gustobot.application.services.context_budget import (
     ContextMessage,
     get_context_budget_manager,
 )
+from gustobot.application.safety import get_safety_defense_manager
+from gustobot.application.safety.schemas import PostCheckResult, PreCheckResult
 from gustobot.config import settings
 from gustobot.infrastructure.core.database import get_db
 from gustobot.infrastructure.persistence.crud import chat_message, chat_session
@@ -159,11 +161,16 @@ def _messages_to_remove_from_graph(config: Dict[str, Any]) -> List[RemoveMessage
     ]
 
 
-async def process_agent_query(message: str, session_id: str,
-                            image_path: Optional[str] = None,
-                            file_path: Optional[str] = None,
-                            ingest_incremental: Optional[bool] = None) -> Dict[str, Any]:
-    """Process query through agent system"""
+async def _run_agent_query(
+    message: str,
+    session_id: str,
+    image_path: Optional[str] = None,
+    file_path: Optional[str] = None,
+    ingest_incremental: Optional[bool] = None,
+    *,
+    persist_context_turn: bool = True,
+) -> Dict[str, Any]:
+    """Run the original agent graph without the safety defense wrapper."""
     incremental_flag = (
         settings.INGEST_INCREMENTAL_DEFAULT if ingest_incremental is None else bool(ingest_incremental)
     )
@@ -202,7 +209,7 @@ async def process_agent_query(message: str, session_id: str,
         if result.get("messages"):
             response_text = result["messages"][-1].content
 
-        if settings.ENABLE_CONTEXT_BUDGET:
+        if settings.ENABLE_CONTEXT_BUDGET and persist_context_turn:
             await get_context_budget_manager().save_turn(
                 session_id,
                 message,
@@ -254,7 +261,7 @@ async def process_agent_query(message: str, session_id: str,
     except Exception as e:
         logger.error(f"Agent query failed: {e}", exc_info=True)
         error_message = "抱歉，处理您的请求时出现了错误。请稍后重试。"
-        if settings.ENABLE_CONTEXT_BUDGET:
+        if settings.ENABLE_CONTEXT_BUDGET and persist_context_turn:
             await get_context_budget_manager().save_turn(
                 session_id,
                 message,
@@ -267,6 +274,212 @@ async def process_agent_query(message: str, session_id: str,
             "sources": [],
             "metadata": {"error": str(e)}
         }
+
+
+async def _save_final_context_turn(session_id: str, user_message: str, assistant_message: str) -> None:
+    """Persist only the user-visible final turn into the context budget checkpoint."""
+    if settings.ENABLE_CONTEXT_BUDGET:
+        await get_context_budget_manager().save_turn(
+            session_id,
+            user_message,
+            assistant_message,
+        )
+
+
+def _blocked_safety_result(
+    *,
+    message: str,
+    session_id: str,
+    trace_id: str,
+    pre_check: PreCheckResult,
+    final_status: str,
+) -> Dict[str, Any]:
+    safe_message = pre_check.safe_response or "这个请求暂时无法继续处理。"
+    return {
+        "message": safe_message,
+        "route": pre_check.suggested_route or "safety-blocked",
+        "route_logic": pre_check.reason,
+        "sources": [],
+        "metadata": {
+            "session_id": session_id,
+            "safety": {
+                "trace_id": trace_id,
+                "pre_check": pre_check.model_dump(),
+                "post_check": None,
+                "evidence_count": 0,
+                "retry_count": 0,
+                "final_status": final_status,
+            },
+        },
+    }
+
+
+def _attach_safety_metadata(
+    result: Dict[str, Any],
+    *,
+    trace_id: str,
+    pre_check: PreCheckResult,
+    post_check: PostCheckResult,
+    evidence_count: int,
+    retry_count: int,
+    final_status: str,
+) -> Dict[str, Any]:
+    metadata = result.setdefault("metadata", {})
+    metadata["safety"] = {
+        "trace_id": trace_id,
+        "pre_check": pre_check.model_dump(),
+        "post_check": post_check.model_dump(),
+        "evidence_count": evidence_count,
+        "retry_count": retry_count,
+        "final_status": final_status,
+    }
+    return result
+
+
+async def process_agent_query(
+    message: str,
+    session_id: str,
+    image_path: Optional[str] = None,
+    file_path: Optional[str] = None,
+    ingest_incremental: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Process query through the safety defense layer and original agent graph."""
+    if not settings.ENABLE_SAFETY_DEFENSE:
+        return await _run_agent_query(
+            message,
+            session_id,
+            image_path,
+            file_path,
+            ingest_incremental,
+            persist_context_turn=True,
+        )
+
+    safety = get_safety_defense_manager()
+    trace_id = str(uuid.uuid4())
+    context = {
+        "session_id": session_id,
+        "image_path": image_path,
+        "file_path": file_path,
+        "ingest_incremental": ingest_incremental,
+    }
+    pre_check = await safety.pre_check(message, context)
+
+    if pre_check.decision in {"deny", "needs_clarification"} or (
+        pre_check.decision == "risky" and pre_check.safe_response
+    ):
+        final_status = "refused" if pre_check.decision in {"deny", "risky"} else "fallback"
+        blocked = _blocked_safety_result(
+            message=message,
+            session_id=session_id,
+            trace_id=trace_id,
+            pre_check=pre_check,
+            final_status=final_status,
+        )
+        safety.record_metrics(
+            safety.metric_event(
+                trace_id=trace_id,
+                query=message,
+                route=blocked.get("route"),
+                pre_check=pre_check,
+                evidence_count=0,
+                post_check=None,
+                retry_count=0,
+                final_status=final_status,
+                extra={"risk_types": pre_check.risk_types},
+            )
+        )
+        await _save_final_context_turn(session_id, message, blocked["message"])
+        return blocked
+
+    result = await _run_agent_query(
+        message,
+        session_id,
+        image_path,
+        file_path,
+        ingest_incremental,
+        persist_context_turn=False,
+    )
+    route = result.get("route") or pre_check.suggested_route
+    answer = result.get("message", "")
+    evidence = safety.collect_evidence(result, route)
+    post_check = await safety.post_check(message, answer, evidence, route, context)
+
+    retry_count = 0
+    final_status = "passed"
+    accepted_result = result
+    accepted_answer = answer
+    accepted_evidence = evidence
+
+    while safety.should_retry(post_check, retry_count):
+        retry_count += 1
+        retry_query = safety.build_retry_query(message, post_check)
+        retry_result = await _run_agent_query(
+            retry_query,
+            session_id,
+            image_path,
+            file_path,
+            ingest_incremental,
+            persist_context_turn=False,
+        )
+        retry_route = retry_result.get("route") or route
+        retry_answer = retry_result.get("message", "")
+        retry_evidence = safety.collect_evidence(retry_result, retry_route)
+        retry_post = await safety.post_check(message, retry_answer, retry_evidence, retry_route, context)
+
+        post_check = retry_post
+        accepted_result = retry_result
+        accepted_answer = retry_answer
+        accepted_evidence = retry_evidence
+        route = retry_route
+        if retry_post.suggested_action == "pass" and retry_post.verdict in {
+            "supported",
+            "partially_supported",
+        }:
+            final_status = "retried_passed" if retry_post.verdict == "supported" else "partial"
+            break
+
+    if post_check.verdict == "partially_supported" and post_check.suggested_action == "pass":
+        accepted_answer = post_check.safe_answer or f"根据当前资料只能确认以下内容：\n{accepted_answer}"
+        accepted_result["message"] = accepted_answer
+        final_status = "partial"
+    elif post_check.suggested_action == "refuse" or post_check.verdict == "unsafe":
+        accepted_answer = post_check.safe_answer or "这个回答存在安全风险，我不能继续提供。"
+        accepted_result["message"] = accepted_answer
+        final_status = "refused"
+    elif post_check.suggested_action == "fallback" or post_check.verdict in {
+        "unsupported",
+        "no_evidence",
+        "invalid_answer",
+    }:
+        accepted_answer = safety.fallback_answer(post_check.verdict)
+        accepted_result["message"] = accepted_answer
+        final_status = "fallback"
+
+    accepted_result["route"] = accepted_result.get("route") or route
+    accepted_result = _attach_safety_metadata(
+        accepted_result,
+        trace_id=trace_id,
+        pre_check=pre_check,
+        post_check=post_check,
+        evidence_count=len(accepted_evidence),
+        retry_count=retry_count,
+        final_status=final_status,
+    )
+    safety.record_metrics(
+        safety.metric_event(
+            trace_id=trace_id,
+            query=message,
+            route=accepted_result.get("route"),
+            pre_check=pre_check,
+            evidence_count=len(accepted_evidence),
+            post_check=post_check,
+            retry_count=retry_count,
+            final_status=final_status,
+            extra={"risk_types": pre_check.risk_types, "issues": post_check.issues},
+        )
+    )
+    await _save_final_context_turn(session_id, message, accepted_answer)
+    return accepted_result
 
 
 async def stream_agent_response(message: str, session_id: str,

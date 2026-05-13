@@ -1,10 +1,11 @@
 from typing import Any, Callable, Coroutine, Dict, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 # 导入必要的模块
 from gustobot.application.agents.kg_sub_graph.kg_neo4j_conn import get_neo4j_graph
 from gustobot.infrastructure.core.logger import get_logger
 from langchain_openai import ChatOpenAI
 from gustobot.config import settings
+from gustobot.application.safety.langgraph_bridge import evidence_from_payload
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.retrievers.cypher_examples.recipe_retriever import RecipeCypherRetriever
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.cypher_tools.utils import create_text2cypher_generation_node, create_text2cypher_validation_node, create_text2cypher_execution_node
 
@@ -23,8 +24,12 @@ class CypherQueryInputState(BaseModel):
 class CypherQueryOutputState(BaseModel):
     task: str
     query: str
+    statement: str = ""
+    parameters: Any = ""
     errors: List[str]
     records: Dict[str, Any]
+    evidence: List[Dict[str, Any]] = Field(default_factory=list)
+    validation_warnings: List[str] = Field(default_factory=list)
     steps: List[str]
 
 # 定义GraphRAG API包装器
@@ -92,8 +97,12 @@ def create_cypher_query_node(
                         **{
                             "task": state.get("task", ""),
                             "query": query,
+                            "statement": "",
+                            "parameters": "",
                             "errors": errors,
                             "records": {"result": []},
+                            "evidence": [],
+                            "validation_warnings": errors,
                             "steps": state.get("steps", []),
                         }
                     )
@@ -173,6 +182,13 @@ def create_cypher_query_node(
 
         #  获取执行Cypher查询的全部信息
         execute_info = await validate_cypher(state)
+        validation_warnings: List[str] = []
+        if isinstance(execute_info, dict):
+            validation_warnings.extend(str(item) for item in execute_info.get("errors", []) if item)
+            next_action = execute_info.get("next_action_cypher")
+            if next_action and next_action != "execute_cypher":
+                validation_warnings.append(str(next_action))
+        validation_warnings.extend(str(item) for item in state.get("errors", []) if item)
 
         #  执行 Cypher 查询语句
         execute_cypher = create_text2cypher_execution_node(
@@ -180,6 +196,32 @@ def create_cypher_query_node(
         )
 
         final_result = await execute_cypher(state)
+        records_payload = (
+            {"result": final_result["cyphers"][0]["records"]}
+            if final_result.get("cyphers") and len(final_result["cyphers"]) > 0
+            else {"result": []}
+        )
+        raw_records = records_payload.get("result")
+        has_records = bool(raw_records)
+        if isinstance(raw_records, list) and all(
+            isinstance(row, dict) and row.get("error") for row in raw_records
+        ):
+            has_records = False
+        evidence = (
+            evidence_from_payload(
+                {
+                    "cypher_records": records_payload,
+                    "tool_outputs": {
+                        "task": state.get("task", ""),
+                        "statement": cypher_statement,
+                        "records": records_payload,
+                    },
+                },
+                route="graphrag-query",
+            )
+            if has_records
+            else []
+        )
 
         # 封装 单次子任务执行的 输出结果并通过Pydantic模型限定格式
         return {
@@ -188,10 +230,12 @@ def create_cypher_query_node(
                         **{
                             "task": state.get("task", ""),
                             "query": query,
-                            "statement": "",
-                            "parameters":"",
+                            "statement": cypher_statement,
+                            "parameters": state.get("parameters") or {},
                             "errors": errors,
-                            "records": {"result": final_result["cyphers"][0]["records"]} if final_result.get("cyphers") and len(final_result["cyphers"]) > 0 else {"result": []},
+                            "records": records_payload,
+                            "evidence": evidence,
+                            "validation_warnings": validation_warnings,
                             "steps": ["execute_cypher_query"],
                         }
                     )

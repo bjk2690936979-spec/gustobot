@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, Field
+from gustobot.application.safety.langgraph_bridge import evidence_from_payload
 
 try:
     from lightrag import LightRAG, QueryParam
@@ -53,6 +54,8 @@ class LightRAGQueryOutputState(BaseModel):
     parameters: str = Field(default="")
     errors: List[str] = Field(...)
     records: Dict[str, Any] = Field(...)
+    evidence: List[Dict[str, Any]] = Field(default_factory=list)
+    validation_warnings: List[str] = Field(default_factory=list)
     steps: List[str] = Field(...)
 
 
@@ -332,6 +335,25 @@ def create_lightrag_query_node(
                 errors.append(f"LightRAG 查询失败: {str(e)}")
                 logger.error(f"LightRAG 查询节点执行失败: {str(e)}", exc_info=True)
 
+        response_text = search_result.get("response", "")
+        response_has_context = bool(response_text) and "[no-context]" not in str(response_text).lower()
+        evidence = (
+            evidence_from_payload(
+                {
+                    "tool_outputs": {
+                        "task": state.get("task", ""),
+                        "query": query,
+                        "response": response_text,
+                        "mode": search_result.get("mode", ""),
+                    },
+                    "records": {"result": response_text},
+                },
+                route="graphrag-query",
+            )
+            if response_has_context
+            else []
+        )
+
         return {
             "cyphers": [
                 LightRAGQueryOutputState(
@@ -341,7 +363,9 @@ def create_lightrag_query_node(
                         "statement": f"LightRAG {search_result.get('mode', '')} search",
                         "parameters": "",
                         "errors": errors,
-                        "records": {"result": search_result.get("response", "")},
+                        "records": {"result": response_text},
+                        "evidence": evidence,
+                        "validation_warnings": errors,
                         "steps": ["execute_lightrag_query"],
                     }
                 )

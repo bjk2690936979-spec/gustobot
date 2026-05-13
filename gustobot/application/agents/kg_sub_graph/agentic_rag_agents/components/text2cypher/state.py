@@ -32,4 +32,6 @@ class CypherOutputState(TypedDict):
     parameters: Optional[Dict[str, Any]]
     errors: List[str]
     records: List[Dict[str, Any]]
+    evidence: List[Dict[str, Any]]
+    validation_warnings: List[str]
     steps: List[str]

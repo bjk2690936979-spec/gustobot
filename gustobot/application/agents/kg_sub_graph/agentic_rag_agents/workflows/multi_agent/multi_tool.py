@@ -39,6 +39,7 @@ from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.cust
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.text2cypher.text2sql_tool import create_text2sql_tool_node
 
 from gustobot.config import settings
+from gustobot.application.safety.langgraph_bridge import create_safety_verify_node
 from gustobot.infrastructure.core.logger import get_logger
 from gustobot.infrastructure.knowledge import KnowledgeService
 
@@ -141,6 +142,7 @@ def create_multi_tool_workflow(
         default_to_text2cypher=default_to_text2cypher,
     )
     summarize = create_summarization_node(llm=llm)
+    safety_verify_answer = create_safety_verify_node()
 
     final_answer = create_final_answer_node()
 
@@ -153,6 +155,7 @@ def create_multi_tool_workflow(
     main_graph_builder.add_node(predefined_cypher) #预设查询（当无需动态生成时）。
     main_graph_builder.add_node("customer_tools", customer_tools) #lightrag_query
     main_graph_builder.add_node("text2sql_query", text2sql_query)
+    main_graph_builder.add_node("safety_verify_answer", safety_verify_answer)
     main_graph_builder.add_node(summarize) # 总结
     main_graph_builder.add_node(tool_selection) #工具选择的中间控制节点（通常结合 planner 的输出）。
     main_graph_builder.add_node(final_answer)
@@ -174,7 +177,8 @@ def create_multi_tool_workflow(
     main_graph_builder.add_edge("predefined_cypher", "summarize")
     main_graph_builder.add_edge("customer_tools", "summarize")
     main_graph_builder.add_edge("text2sql_query", "summarize")
-    main_graph_builder.add_edge("summarize", "final_answer")
+    main_graph_builder.add_edge("summarize", "safety_verify_answer")
+    main_graph_builder.add_edge("safety_verify_answer", "final_answer")
 
     main_graph_builder.add_edge("final_answer", END)
 

@@ -188,6 +188,24 @@ class Settings(BaseSettings):
         description="TTL in seconds for Redis context checkpoints",
     )
 
+    # Safety defense layer
+    ENABLE_SAFETY_DEFENSE: bool = Field(
+        default=True,
+        description="Enable query boundary checks, evidence verification, retry, and safety metrics",
+    )
+    ENABLE_SAFETY_LLM_VERIFIER: bool = Field(
+        default=False,
+        description="Enable optional LLM-based answer verifier after rule checks",
+    )
+    SAFETY_MAX_RETRIES: int = Field(
+        default=2,
+        description="Maximum answer-level safety retries before conservative fallback",
+    )
+    SAFETY_METRICS_PATH: str = Field(
+        default="logs/safety_eval_events.jsonl",
+        description="Local JSONL path for safety defense metrics",
+    )
+
     # Relational database
     DATABASE_URL: str = "sqlite:///./data/gustobot.db"
 

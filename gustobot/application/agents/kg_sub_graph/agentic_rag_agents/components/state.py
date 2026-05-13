@@ -61,6 +61,7 @@ class InputState(TypedDict, total=False):
     data: List[Dict[str, Any]]
     history: Annotated[List[HistoryRecord], update_history]
     route_type: Optional[str]
+    safety: Dict[str, Any]
 
 
 class OverallState(TypedDict, total=False):
@@ -74,6 +75,7 @@ class OverallState(TypedDict, total=False):
     steps: Annotated[List[str], add]
     history: Annotated[List[HistoryRecord], update_history]
     route_type: Optional[str]
+    safety: Dict[str, Any]
 
 
 class OutputState(TypedDict, total=False):
@@ -85,6 +87,7 @@ class OutputState(TypedDict, total=False):
     cyphers: List[CypherOutputState]
     visualizations: List[VisualizationOutputState]
     history: Annotated[List[HistoryRecord], update_history]
+    safety: Dict[str, Any]
 
 
 class TaskState(TypedDict):

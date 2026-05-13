@@ -9,6 +9,7 @@ from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.stat
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.text2cypher.state import CypherOutputState
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.predefined_cypher.utils import create_vector_query_matcher
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.predefined_cypher.descriptions import QUERY_DESCRIPTIONS
+from gustobot.application.safety.langgraph_bridge import evidence_from_payload
 from gustobot.config import settings
 
 
@@ -83,6 +84,22 @@ def create_predefined_cypher_node(
                 errors.append(f"缺少查询参数: {', '.join(missing)}")
             else:
                 records = graph.query(query=statement, params=parameters) or []
+        evidence = (
+            evidence_from_payload(
+                {
+                    "cypher_records": records,
+                    "tool_outputs": {
+                        "task": state.get("task", ""),
+                        "statement": statement or "",
+                        "parameters": parameters,
+                        "records": records,
+                    },
+                },
+                route="graphrag-query",
+            )
+            if records
+            else []
+        )
 
         return {
             "cyphers": [
@@ -96,6 +113,8 @@ def create_predefined_cypher_node(
                         },
                         "errors": errors,
                         "records": records if records else NO_CYPHER_RESULTS,
+                        "evidence": evidence,
+                        "validation_warnings": errors,
                         "steps": ["execute_predefined_cypher"],
                     }
                 )

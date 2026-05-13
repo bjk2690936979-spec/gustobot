@@ -907,7 +907,14 @@ async def create_research_plan(
 
     # 执行工作流
     response = await multi_tool_workflow.ainvoke(input_state)
-    return {"messages": [AIMessage(content=response["answer"])]}
+    ai_message = AIMessage(content=response["answer"])
+    if response.get("safety"):
+        ai_message.additional_kwargs["safety"] = response.get("safety")
+    return {
+        "messages": [ai_message],
+        "safety": response.get("safety", {}),
+        "sources": response.get("sources", []),
+    }
 
 
 async def check_hallucinations(

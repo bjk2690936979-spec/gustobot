@@ -9,6 +9,10 @@ from langchain_core.output_parsers import StrOutputParser
 
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.state import OverallState
 from gustobot.application.agents.kg_sub_graph.agentic_rag_agents.components.summarize.prompts import create_summarization_prompt_template
+from gustobot.application.safety.langgraph_bridge import (
+    evidence_from_payload,
+    merge_safety_evidence,
+)
 
 generate_summary_prompt = create_summarization_prompt_template()
 
@@ -42,6 +46,8 @@ def create_summarization_node(
         narrative_sections: List[str] = []
         metric_sections: List[str] = []
         error_sections: List[str] = []
+        collected_evidence: List[dict[str, Any]] = []
+        validation_warnings: List[str] = []
 
         def _is_no_context_text(text: Any) -> bool:
             value = str(text or "").strip()
@@ -87,6 +93,24 @@ def create_summarization_node(
                     lines.append(f"{idx}. {row_desc}")
             return "\n".join(lines)
 
+        def _records_have_context(records: Any) -> bool:
+            if isinstance(records, dict):
+                result = records.get("result")
+                if isinstance(result, str):
+                    return not _is_no_context_text(result)
+                if isinstance(result, list):
+                    return bool(result)
+                rows = records.get("rows")
+                if isinstance(rows, list):
+                    return bool(rows)
+                answer = records.get("answer")
+                if isinstance(answer, str):
+                    return not _is_no_context_text(answer)
+                return bool(records)
+            if isinstance(records, list):
+                return any(not _is_no_context_text(item) for item in records)
+            return not _is_no_context_text(records)
+
         for idx, cypher in enumerate(cypher_entries):
             if hasattr(cypher, "model_dump"):
                 data = cypher.model_dump()
@@ -103,6 +127,24 @@ def create_summarization_node(
 
             records = data.get("records") or {}
             errors = data.get("errors") or []
+            explicit_evidence = data.get("evidence") or []
+            if isinstance(explicit_evidence, list):
+                collected_evidence.extend(item for item in explicit_evidence if isinstance(item, dict))
+            elif explicit_evidence:
+                collected_evidence.extend(
+                    evidence_from_payload({"tool_outputs": explicit_evidence}, route=state.get("route_type"))
+                )
+            validation_warnings.extend(str(item) for item in data.get("validation_warnings", []) if item)
+            if not explicit_evidence and _records_have_context(records):
+                collected_evidence.extend(
+                    evidence_from_payload(
+                        {
+                            "records": records,
+                            "tool_outputs": {"task": task_label, "records": records},
+                        },
+                        route=state.get("route_type"),
+                    )
+                )
 
             if errors:
                 error_sections.append(f"{task_label}：{'；'.join(errors)}" if task_label else "；".join(errors))
@@ -156,6 +198,12 @@ def create_summarization_node(
         if not summary:
             summary = "未检索到可用于回答该问题的菜谱数据，请换一个更具体的菜名或食材再试。"
 
-        return {"summary": summary, "steps": ["summarize"]}
+        safety = merge_safety_evidence(
+            state.get("safety"),
+            collected_evidence,
+            validation_warnings=validation_warnings,
+        )
+
+        return {"summary": summary, "steps": ["summarize"], "safety": safety}
 
     return summarize
