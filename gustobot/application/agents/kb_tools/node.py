@@ -40,11 +40,31 @@ class KnowledgeQueryOutputState(TypedDict):
 FALLBACK_MESSAGE = "抱歉，我在知识库中没有找到相关信息。您可以换个方式提问吗？"
 
 
-def _build_context_snippet(documents: List[Dict[str, Any]], limit: int = 5) -> str:
+def _build_context_snippet(
+    documents: List[Dict[str, Any]],
+    limit: Optional[int] = None,
+    max_chunk_chars: Optional[int] = None,
+) -> str:
+    final_limit = limit or settings.RAG_FINAL_TOP_K
+    chunk_limit = max_chunk_chars or settings.RAG_MAX_CHUNK_CHARS
     snippets: List[str] = []
-    for idx, doc in enumerate(documents[:limit]):
+    for idx, doc in enumerate(documents[:final_limit]):
         content = doc.get("content") or doc.get("document") or ""
-        snippets.append(f"文档 {idx + 1}:\n{content}")
+        content = str(content).strip()
+        if len(content) > chunk_limit:
+            content = content[:chunk_limit].rstrip() + "..."
+        meta = doc.get("metadata") or {}
+        name = meta.get("name") or meta.get("title") or ""
+        category = meta.get("category") or ""
+        source = meta.get("source") or meta.get("recipe_id") or doc.get("id") or ""
+        header_parts = [f"文档 {idx + 1}"]
+        if name:
+            header_parts.append(f"name={name}")
+        if category:
+            header_parts.append(f"category={category}")
+        if source:
+            header_parts.append(f"source={source}")
+        snippets.append(f"{' | '.join(header_parts)}:\n{content}")
     return "\n\n".join(snippets)
 
 
@@ -144,7 +164,11 @@ def create_knowledge_query_node(
             except Exception as exc:
                 logger.error("External search failed: {}", exc)
 
-        context_snippet = _build_context_snippet(documents)
+        context_snippet = _build_context_snippet(
+            documents,
+            limit=settings.RAG_FINAL_TOP_K,
+            max_chunk_chars=settings.RAG_MAX_CHUNK_CHARS,
+        )
         if web_results:
             web_snippets: List[str] = []
             for idx, item in enumerate(web_results[:5]):
@@ -179,12 +203,13 @@ def create_knowledge_query_node(
                     "score": doc.get("score"),
                     "source": doc.get("source") or doc.get("metadata", {}).get("source"),
                 }
-                for doc in documents[:5]
+                for doc in documents[:settings.RAG_FINAL_TOP_K]
             ],
             "top_k": top_k,
             "similarity_threshold": similarity_threshold,
             "filter_expr": filter_expr,
             "web_results": web_results,
+            "retrieval_diagnostics": getattr(knowledge_service, "last_search_diagnostics", {}),
         }
 
         if llm_client is None:

@@ -246,7 +246,7 @@ def create_kb_multi_tool_workflow(
     """
 
     knowledge_service = knowledge_service or KnowledgeService()
-    effective_top_k = top_k or settings.KB_TOP_K
+    effective_top_k = top_k or settings.RAG_FINAL_TOP_K or settings.KB_TOP_K
     effective_threshold = (
         similarity_threshold
         if similarity_threshold is not None
@@ -416,7 +416,7 @@ def create_kb_multi_tool_workflow(
         for idx, doc in enumerate(results[:effective_top_k]):
             content = doc.get("content") or doc.get("document") or ""
             snippet = content.strip().replace("\n", " ")
-            snippet = snippet[:500]
+            snippet = snippet[: settings.RAG_MAX_CHUNK_CHARS]
             meta = doc.get("metadata") or {}
             source = (
                 doc.get("source")
@@ -461,7 +461,7 @@ def create_kb_multi_tool_workflow(
         for idx, item in enumerate(results[:effective_top_k]):
             content = item.get("content") or item.get("summary") or ""
             snippet = content.strip().replace("\n", " ")
-            snippet = snippet[:500]
+            snippet = snippet[: settings.RAG_MAX_CHUNK_CHARS]
             meta = item.get("metadata") or {}
             source = (
                 item.get("source")
@@ -682,6 +682,9 @@ def create_kb_multi_tool_workflow(
                     docs = await knowledge_service.search(
                         query=question,
                         top_k=effective_top_k,
+                        raw_top_k=settings.RAG_RAW_TOP_K,
+                        final_top_k=effective_top_k,
+                        max_chunk_chars=settings.RAG_MAX_CHUNK_CHARS,
                         similarity_threshold=settings.KB_SIMILARITY_THRESHOLD,
                         filter_expr=filter_expr,
                         filter_by_similarity=not knowledge_service.reranker.enabled,

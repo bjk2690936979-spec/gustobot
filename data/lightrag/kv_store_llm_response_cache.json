@@ -1270,5 +1270,225 @@
     "create_time": 1778514856,
     "update_time": 1778514856,
     "_id": "hybrid:keywords:9b58decd7cfedebc65ea6e9f45d9609f"
+  },
+  "hybrid:keywords:0b82c9ecb77cd3027fe9779d3c4b7ef7": {
+    "return": "{\"high_level_keywords\": [\"Cooking method\", \"Recipe steps\", \"Ingredient list\"], \"low_level_keywords\": [\"Cold chicken shreds\", \"Cucumber\", \"Dressing\", \"Sesame oil\", \"Soy sauce\", \"Vinegar\", \"Garlic\", \"Chili oil\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "凉拌鸡丝黄瓜的完整制作步骤与所需食材清单",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778572958,
+    "update_time": 1778572958,
+    "_id": "hybrid:keywords:0b82c9ecb77cd3027fe9779d3c4b7ef7"
+  },
+  "hybrid:keywords:78d68b1850ed9c806764248c1600d501": {
+    "return": "{\"high_level_keywords\": [\"Dish characteristics\", \"Culinary profile\", \"Nutritional highlights\"], \"low_level_keywords\": [\"Sausage\", \"Dried meat\", \"Flavor\", \"Texture\", \"Cooking technique\", \"Common pairings\", \"Nutrition\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "香肠炒肉干的菜品特点，包括口味、口感、工艺、常见搭配及营养亮点",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778574202,
+    "update_time": 1778574202,
+    "_id": "hybrid:keywords:78d68b1850ed9c806764248c1600d501"
+  },
+  "hybrid:keywords:962c8e66ba9737f7180109501d75fae2": {
+    "return": "{\"high_level_keywords\": [\"Culinary characteristics\", \"Dish profile\", \"Regional cuisine\"], \"low_level_keywords\": [\"Sausage stir-fried dried vegetables\", \"Texture\", \"Flavor\", \"Color\", \"Zhejiang cuisine\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "香肠炒菜干的菜品特点（如口感、风味、色泽、地域归属等）是什么",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778593206,
+    "update_time": 1778593206,
+    "_id": "hybrid:keywords:962c8e66ba9737f7180109501d75fae2"
+  },
+  "hybrid:keywords:0bda31d1e08fa160699ddea47a1289e8": {
+    "return": "{\"high_level_keywords\": [\"Culinary characteristics\", \"Flavor profile\", \"Food preparation\"], \"low_level_keywords\": [\"Sausage\", \"Dried vegetable dish\", \"Umami\", \"Maillard reaction\", \"Fermentation\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "香肠炒菜干的口味特征与风味来源",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778593535,
+    "update_time": 1778593535,
+    "_id": "hybrid:keywords:0bda31d1e08fa160699ddea47a1289e8"
+  },
+  "hybrid:keywords:1fb36cb213a84543db46496783e9a5c1": {
+    "return": "{\"high_level_keywords\": [\"Nutritional composition\", \"Health benefits\", \"Food nutrition\"], \"low_level_keywords\": [\"Sausage\", \"Dried vegetable dish\", \"Nutrients\", \"Health effects\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "香肠炒菜干的营养成分与健康功效",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778593539,
+    "update_time": 1778593539,
+    "_id": "hybrid:keywords:1fb36cb213a84543db46496783e9a5c1"
+  },
+  "hybrid:keywords:1d419fa1078902a9426effac7fa9d84c": {
+    "return": "{\"high_level_keywords\": [\"Tofu recipes\", \"Chinese cuisine\", \"Vegetarian cooking\"], \"low_level_keywords\": [\"Tofu\", \"Mapo tofu\", \"Kung Pao tofu\", \"Tofu stir-fry\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "查找以豆腐为主要食材的常见菜谱",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778676308,
+    "update_time": 1778676308,
+    "_id": "hybrid:keywords:1d419fa1078902a9426effac7fa9d84c"
+  },
+  "hybrid:keywords:08a982b03bfd8be26ea43f344d52363f": {
+    "return": "{\"high_level_keywords\": [\"Sichuan spicy hotpot\", \"Culinary culture\", \"Regional food characteristics\"], \"low_level_keywords\": [\"Sichuan Province\", \"Chili peppers\", \"Sichuan peppercorns\", \"Hotpot dining customs\", \"Yibin chili oil\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "四川麻辣火锅相关的饮食文化背景或地域特色",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778676361,
+    "update_time": 1778676361,
+    "_id": "hybrid:keywords:08a982b03bfd8be26ea43f344d52363f"
+  },
+  "hybrid:keywords:33c4d4497749450c0ba6f5353774fa0d": {
+    "return": "{\"high_level_keywords\": [\"Sichuan hotpot\", \"Flavor profile\", \"Culinary characteristics\"], \"low_level_keywords\": [\"Mala\", \"Spiciness\", \"Numbness\", \"Freshness\", \"Aroma\", \"Sichuan peppercorns\", \"Chili peppers\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "四川麻辣火锅的典型风味特征（如麻、辣、鲜、香等）及其成因",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778676361,
+    "update_time": 1778676361,
+    "_id": "hybrid:keywords:33c4d4497749450c0ba6f5353774fa0d"
+  },
+  "hybrid:keywords:2a8a7f2c7df13bd8485db26f009b748b": {
+    "return": "{\"high_level_keywords\": [\"Tofu lamb roll\", \"Ingredient composition\", \"Cooking method\"], \"low_level_keywords\": [\"Tofu\", \"Lamb\", \"Seasonings\", \"Cooking steps\", \"Portion sizes\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "豆腐羊肉卷的食材组成、用量及烹饪步骤",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778676408,
+    "update_time": 1778676408,
+    "_id": "hybrid:keywords:2a8a7f2c7df13bd8485db26f009b748b"
+  },
+  "hybrid:keywords:007adc203d51a247d3ba360442239f27": {
+    "return": "{\"high_level_keywords\": [\"Nutritional value\", \"Suitable population\", \"Food health benefits\"], \"low_level_keywords\": [\"Tofu\", \"Lamb rolls\", \"Protein content\", \"Dietary suitability\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "豆腐羊肉卷的营养价值与适宜人群",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778676408,
+    "update_time": 1778676408,
+    "_id": "hybrid:keywords:007adc203d51a247d3ba360442239f27"
+  },
+  "hybrid:keywords:cb9e77cc61d65122d21dd1e166afad2e": {
+    "return": "{\"high_level_keywords\": [\"Tofu lamb roll\", \"Flavor profile\", \"Cuisine classification\"], \"low_level_keywords\": [\"Tofu\", \"Lamb\", \"Chinese cuisine\", \"Sichuan cuisine\", \"Spicy flavor\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "豆腐羊肉卷的口味特征与菜系归属",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 10,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1778676414,
+    "update_time": 1778676414,
+    "_id": "hybrid:keywords:cb9e77cc61d65122d21dd1e166afad2e"
   }
 }

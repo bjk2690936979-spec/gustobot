@@ -33,6 +33,12 @@ services:
       - REDIS_CACHE_EXPIRE=${REDIS_CACHE_EXPIRE:-43200}
       - REDIS_CACHE_THRESHOLD=${REDIS_CACHE_THRESHOLD:-0.92}
       - REDIS_CACHE_MAX_SIZE=${REDIS_CACHE_MAX_SIZE:-1000}
+      - ENABLE_CONTEXT_BUDGET=${ENABLE_CONTEXT_BUDGET:-true}
+      - CONTEXT_WINDOW_SIZE=${CONTEXT_WINDOW_SIZE:-6}
+      - MAX_CONTEXT_CHARS=${MAX_CONTEXT_CHARS:-12000}
+      - SUMMARY_TRIGGER_MESSAGES=${SUMMARY_TRIGGER_MESSAGES:-12}
+      - SUMMARY_MAX_CHARS=${SUMMARY_MAX_CHARS:-500}
+      - REDIS_CHECKPOINT_TTL=${REDIS_CHECKPOINT_TTL:-604800}
 
       # 数据库配置
       - DATABASE_URL=${DATABASE_URL}
@@ -185,9 +191,10 @@ services:
       - gustobot-network
 
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack:latest
     ports:
       - "6379:6379"
+      - "8001:8001"
     volumes:
       - redis_data:/data
     networks:

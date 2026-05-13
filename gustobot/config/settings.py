@@ -162,6 +162,32 @@ class Settings(BaseSettings):
         description="Maximum number of cached items per namespace",
     )
 
+    # Short-term context budget checkpoints
+    ENABLE_CONTEXT_BUDGET: bool = Field(
+        default=True,
+        description="Enable rolling-summary and sliding-window context budgeting",
+    )
+    CONTEXT_WINDOW_SIZE: int = Field(
+        default=6,
+        description="Number of recent user/assistant turns kept verbatim",
+    )
+    MAX_CONTEXT_CHARS: int = Field(
+        default=12000,
+        description="Maximum characters in the compact context passed to the agent",
+    )
+    SUMMARY_TRIGGER_MESSAGES: int = Field(
+        default=12,
+        description="Message count threshold before old messages are summarized",
+    )
+    SUMMARY_MAX_CHARS: int = Field(
+        default=500,
+        description="Maximum characters in the rolling session summary",
+    )
+    REDIS_CHECKPOINT_TTL: int = Field(
+        default=60 * 60 * 24 * 7,
+        description="TTL in seconds for Redis context checkpoints",
+    )
+
     # Relational database
     DATABASE_URL: str = "sqlite:///./data/gustobot.db"
 
@@ -219,6 +245,30 @@ class Settings(BaseSettings):
     # Knowledge base retrieval
     KB_TOP_K: int = 5
     KB_SIMILARITY_THRESHOLD: float = 0.2
+    RAG_RAW_TOP_K: int = Field(
+        default=20,
+        description="Initial number of chunks recalled before de-duplication and compression",
+    )
+    RAG_FINAL_TOP_K: int = Field(
+        default=5,
+        description="Final number of chunks passed to answer generation",
+    )
+    RAG_MAX_CHUNK_CHARS: int = Field(
+        default=800,
+        description="Maximum characters kept per retrieved chunk before sending to the LLM",
+    )
+    ENABLE_QUERY_REWRITE: bool = Field(
+        default=True,
+        description="Enable lightweight local query rewrite before vector retrieval",
+    )
+    ENABLE_MULTI_QUERY: bool = Field(
+        default=True,
+        description="Enable multi-query retrieval with rewritten query variants",
+    )
+    ENABLE_CONTEXT_COMPRESSION: bool = Field(
+        default=True,
+        description="Enable result de-duplication and simple context truncation",
+    )
     KB_CHUNK_SIZE: int = Field(
         default=512,
         description="Chunk size used when splitting documents for the knowledge base",

@@ -43,6 +43,13 @@ def create_summarization_node(
         metric_sections: List[str] = []
         error_sections: List[str] = []
 
+        def _is_no_context_text(text: Any) -> bool:
+            value = str(text or "").strip()
+            if not value:
+                return True
+            lowered = value.lower()
+            return "[no-context]" in lowered or "not able to provide an answer" in lowered
+
         def _format_rows(rows: List[dict[str, Any]]) -> str:
             if not rows:
                 return ""
@@ -105,11 +112,15 @@ def create_summarization_node(
                 continue
 
             if isinstance(records, dict):
-                if isinstance(records.get("result"), str) and records["result"].strip():
+                if (
+                    isinstance(records.get("result"), str)
+                    and records["result"].strip()
+                    and not _is_no_context_text(records["result"])
+                ):
                     narrative_sections.append(records["result"].strip())
 
                 answer = records.get("answer")
-                if answer:
+                if answer and not _is_no_context_text(answer):
                     metric_sections.append(f"{task_label}：{answer}".strip())
 
                 rows = records.get("rows")
@@ -143,7 +154,7 @@ def create_summarization_node(
 
         summary = "\n\n".join(section for section in sections if section).strip()
         if not summary:
-            summary = "No data to summarize."
+            summary = "未检索到可用于回答该问题的菜谱数据，请换一个更具体的菜名或食材再试。"
 
         return {"summary": summary, "steps": ["summarize"]}
 

@@ -70,6 +70,12 @@
                 路由：{{ message.route }}
                 <span v-if="message.routeLogic">（{{ message.routeLogic }}）</span>
               </div>
+              <div v-if="message.contextBudget" class="context-budget">
+                上下文压缩：{{ message.contextBudget.compressed_context_chars }} chars ·
+                recent={{ message.contextBudget.recent_message_count }} ·
+                summary={{ message.contextBudget.summary_generated ? "yes" : "no" }} ·
+                redis={{ message.contextBudget.redis_available ? "on" : "fallback" }}
+              </div>
             </div>
           </div>
 
@@ -128,6 +134,12 @@ interface ChatMessage {
   route?: string | null;
   routeLogic?: string | null;
   sources?: Array<Record<string, unknown>>;
+  contextBudget?: {
+    compressed_context_chars?: number | null;
+    recent_message_count?: number | null;
+    summary_generated?: boolean | null;
+    redis_available?: boolean | null;
+  } | null;
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
@@ -269,7 +281,8 @@ async function sendMessage() {
         content: data.message,
         route: data.route || null,
         routeLogic: data.route_logic || null,
-        sources: data.sources || []
+        sources: data.sources || [],
+        contextBudget: data.metadata?.context_budget || null
       };
       state.messages.push(assistantMessage);
     } else {
@@ -590,6 +603,12 @@ onUnmounted(() => {
   margin-top: 8px;
   font-size: 11px;
   color: #b45309;
+}
+
+.context-budget {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
 }
 
 .typing {

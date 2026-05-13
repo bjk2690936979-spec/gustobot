@@ -698,7 +698,7 @@ async def create_file_query(
         user_question = state.messages[-1].content if state.messages else title
         input_state: KnowledgeQueryInputState = {
             "task": user_question,
-            "context": {"top_k": 5},
+            "context": {"top_k": settings.RAG_FINAL_TOP_K},
             "steps": ["file_upload"],
         }
         kb_result = await knowledge_node(input_state)
@@ -719,7 +719,7 @@ async def create_kb_query(
         return {"messages": [AIMessage(content="请告诉我具体的问题，我才能帮您查询知识库。")]}
 
     config_opts = _extract_configurable(config)
-    kb_top_k = config_opts.get("kb_top_k") or settings.KB_TOP_K
+    kb_top_k = config_opts.get("kb_top_k") or settings.RAG_FINAL_TOP_K or settings.KB_TOP_K
     kb_similarity_threshold = (
         config_opts.get("kb_similarity_threshold")
         if config_opts.get("kb_similarity_threshold") is not None

@@ -258,8 +258,116 @@ def _normalize_recipe_payload(raw: Any) -> List[Dict[str, Any]]:
 def _coerce_recipe_entry(entry: Any) -> Dict[str, Any]:
     """确保每个菜谱条目是 dict，并复制一份以避免修改原对象。"""
     if isinstance(entry, dict):
-        return dict(entry)
+        return _normalize_recipe_fields(dict(entry))
     return {"dish_name": str(entry), "instructions": ""}  # 最少保留菜名
+
+
+def _normalize_recipe_fields(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Map bundled Chinese recipe.json fields to the LightRAG document schema."""
+    normalized = dict(record)
+
+    normalized.setdefault(
+        "dish_name",
+        normalized.get("dishName")
+        or normalized.get("name")
+        or normalized.get("title")
+        or normalized.get("菜名")
+        or "",
+    )
+    normalized.setdefault(
+        "instructions",
+        normalized.get("instructions")
+        or normalized.get("做法")
+        or normalized.get("steps")
+        or "",
+    )
+    normalized.setdefault(
+        "cook_time",
+        normalized.get("cook_time")
+        or normalized.get("time")
+        or normalized.get("耗时")
+        or "",
+    )
+
+    ingredients: List[Dict[str, str]] = []
+    for source_key in ("ingredients", "ingredient_list", "主食材", "辅料"):
+        value = normalized.get(source_key)
+        if value:
+            ingredients.extend(_normalize_ingredients(value))
+    if ingredients and not normalized.get("ingredients"):
+        normalized["ingredients"] = ingredients
+
+    flavors = _normalize_list(
+        normalized.get("flavors")
+        or normalized.get("口味")
+        or normalized.get("flavor")
+    )
+    if flavors and not normalized.get("flavors"):
+        normalized["flavors"] = flavors
+
+    methods = _normalize_list(
+        normalized.get("methods")
+        or normalized.get("工艺")
+        or normalized.get("method")
+    )
+    if methods and not normalized.get("methods"):
+        normalized["methods"] = methods
+
+    dish_types = _normalize_list(
+        normalized.get("types")
+        or normalized.get("类型")
+        or normalized.get("菜系")
+        or normalized.get("category")
+    )
+    if dish_types and not normalized.get("types"):
+        normalized["types"] = dish_types
+
+    return normalized
+
+
+def _normalize_ingredients(value: Any) -> List[Dict[str, str]]:
+    items: List[Dict[str, str]] = []
+    if isinstance(value, str):
+        for part in value.replace("、", ",").replace("，", ",").split(","):
+            name = part.strip()
+            if name:
+                items.append({"name": name, "amount": ""})
+        return items
+
+    if isinstance(value, dict):
+        iterable = value.items()
+    elif isinstance(value, list):
+        iterable = value
+    else:
+        return items
+
+    for item in iterable:
+        if isinstance(item, dict):
+            name = str(item.get("name") or item.get("食材") or item.get("ingredient") or "").strip()
+            amount = str(item.get("amount") or item.get("用量") or item.get("quantity") or "").strip()
+        elif isinstance(item, (list, tuple)):
+            name = str(item[0]).strip() if item else ""
+            amount = str(item[1]).strip() if len(item) > 1 else ""
+        else:
+            name = str(item).strip()
+            amount = ""
+        if name:
+            items.append({"name": name, "amount": amount})
+    return items
+
+
+def _normalize_list(value: Any) -> List[str]:
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [
+            part.strip()
+            for part in value.replace("、", ",").replace("，", ",").split(",")
+            if part.strip()
+        ]
+    if isinstance(value, list):
+        return [str(part).strip() for part in value if str(part).strip()]
+    return [str(value).strip()]
 
 
 async def main():

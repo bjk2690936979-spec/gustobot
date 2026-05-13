@@ -11,10 +11,17 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, status
 from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langgraph.graph.message import RemoveMessage
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from gustobot.application.agents.lg_builder import graph
+from gustobot.application.services.context_budget import (
+    ContextBuildResult,
+    ContextMessage,
+    get_context_budget_manager,
+)
 from gustobot.config import settings
 from gustobot.infrastructure.core.database import get_db
 from gustobot.infrastructure.persistence.crud import chat_message, chat_session
@@ -112,6 +119,46 @@ async def save_message(db: Session, session_id: str, message: str, is_user: bool
         return None
 
 
+def _checkpoint_message_to_langchain(message: ContextMessage):
+    """Convert compact checkpoint messages back into LangChain chat messages."""
+    content = message.get("content", "")
+    if message.get("role") == "assistant":
+        return AIMessage(content=content)
+    return HumanMessage(content=content)
+
+
+def _build_budgeted_agent_messages(
+    context_result: ContextBuildResult,
+    current_message: str,
+):
+    """Build a compact LangGraph message state without changing the current question."""
+    messages = []
+    if context_result.summary:
+        messages.append(SystemMessage(content=f"[历史摘要]\n{context_result.summary}"))
+    messages.extend(
+        _checkpoint_message_to_langchain(message)
+        for message in context_result.recent_messages
+    )
+    messages.append(HumanMessage(content=current_message))
+    return messages
+
+
+def _messages_to_remove_from_graph(config: Dict[str, Any]) -> List[RemoveMessage]:
+    """Prepare RemoveMessage operations to prevent LangGraph state from growing forever."""
+    try:
+        state_snapshot = graph.get_state(config)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(f"Unable to inspect graph state for context trimming: {exc}")
+        return []
+
+    existing_messages = list(state_snapshot.values.get("messages", []))
+    return [
+        RemoveMessage(id=msg.id)
+        for msg in existing_messages
+        if getattr(msg, "id", None)
+    ]
+
+
 async def process_agent_query(message: str, session_id: str,
                             image_path: Optional[str] = None,
                             file_path: Optional[str] = None,
@@ -129,9 +176,22 @@ async def process_agent_query(message: str, session_id: str,
         }
     }
 
-    input_state = {
-        "messages": [{"type": "human", "content": message}]
-    }
+    context_result: Optional[ContextBuildResult] = None
+    if settings.ENABLE_CONTEXT_BUDGET:
+        context_manager = get_context_budget_manager()
+        context_result = await context_manager.build_context(session_id, message)
+        config["configurable"]["context_budget_prompt"] = context_result.prompt
+        config["configurable"]["context_budget_chars"] = context_result.compressed_context_chars
+        config["configurable"]["context_budget_redis_available"] = context_result.redis_available
+        compact_messages = [
+            *_messages_to_remove_from_graph(config),
+            *_build_budgeted_agent_messages(context_result, message),
+        ]
+        input_state = {"messages": compact_messages}
+    else:
+        input_state = {
+            "messages": [{"type": "human", "content": message}]
+        }
 
     try:
         # Invoke agent graph
@@ -141,6 +201,13 @@ async def process_agent_query(message: str, session_id: str,
         response_text = ""
         if result.get("messages"):
             response_text = result["messages"][-1].content
+
+        if settings.ENABLE_CONTEXT_BUDGET:
+            await get_context_budget_manager().save_turn(
+                session_id,
+                message,
+                response_text,
+            )
 
         # Extract route information
         router_info = result.get("router", {})
@@ -168,13 +235,33 @@ async def process_agent_query(message: str, session_id: str,
             "sources": sources,
             "metadata": {
                 "session_id": session_id,
+                "context_budget": {
+                    "enabled": settings.ENABLE_CONTEXT_BUDGET,
+                    "compressed_context_chars": (
+                        context_result.compressed_context_chars if context_result else None
+                    ),
+                    "recent_message_count": (
+                        len(context_result.recent_messages) if context_result else None
+                    ),
+                    "summary_generated": bool(context_result and context_result.summary),
+                    "redis_available": (
+                        context_result.redis_available if context_result else None
+                    ),
+                },
                 "agent_state": result
             }
         }
     except Exception as e:
         logger.error(f"Agent query failed: {e}", exc_info=True)
+        error_message = "抱歉，处理您的请求时出现了错误。请稍后重试。"
+        if settings.ENABLE_CONTEXT_BUDGET:
+            await get_context_budget_manager().save_turn(
+                session_id,
+                message,
+                error_message,
+            )
         return {
-            "message": "抱歉，处理您的请求时出现了错误。请稍后重试。",
+            "message": error_message,
             "route": "error",
             "route_logic": f"Error: {str(e)}",
             "sources": [],
@@ -429,6 +516,8 @@ async def clear_session(
 
     # Delete all messages in session
     chat_message.delete_by_session(db, session_id=session_id)
+    if settings.ENABLE_CONTEXT_BUDGET:
+        await get_context_budget_manager().clear(session_id)
 
     return {"message": "Session cleared successfully", "session_id": session_id}
 
